@@ -16,19 +16,23 @@
             maxZoom: 19
         }).addTo(map);
 
-        const markers = []; // Store markers
+        const markers = {}; // Use MMSI as the key for markers
 
         function updateVessels() {
             $.getJSON('/vessels', function(data) {
-                // Clear existing markers
-                markers.forEach(marker => map.removeLayer(marker));
-                markers.length = 0;
-
-                // Add new markers
-                data.forEach(([lat, lon]) => {
-                    const marker = L.marker([lat, lon]).addTo(map);
-                    marker.bindPopup(`Vessel @ ${lat}, ${lon}`);
-                    markers.push(marker);
+                data.forEach(vessel => {
+                    const mmsi = vessel.mmsi || "Unknown"; // Get MMSI or default to "Unknown"
+                    const key = mmsi; // Use MMSI as the unique key
+                    if (!markers[key]) {
+                        // Create a new marker if it doesn't exist
+                        const marker = L.marker([vessel.lat, vessel.lon]).addTo(map);
+                        marker.bindPopup(`MMSI: ${mmsi}<br>Location: ${vessel.lat}, ${vessel.lon}<br>Heading: ${vessel.heading}<br>Speed Over Ground: ${vessel.sog} knots`);
+                        markers[key] = marker;
+                    } else {
+                        // Update the marker's position if it already exists
+                        markers[key].setLatLng([vessel.lat, vessel.lon]);
+                        markers[key].getPopup().setContent(`MMSI: ${mmsi}<br>Location: ${vessel.lat}, ${vessel.lon}<br>Heading: ${vessel.heading}<br>Speed Over Ground: ${vessel.sog} knots`);
+                    }
                 });
             });
         }

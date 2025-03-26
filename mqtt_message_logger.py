@@ -11,9 +11,24 @@ def on_message(client, userdata, msg):
         raw_message = msg.payload.decode("utf-8")
         print(f"Raw MQTT Message: {raw_message}")
 
+        # Parse the topic to extract MMSI
+        topic_parts = msg.topic.split("/")
+        if len(topic_parts) >= 3 and topic_parts[0] == "vessels-v2":
+            mmsi = topic_parts[1]
+        else:
+            mmsi = "Unknown"
+
         # Attempt to parse the message as JSON
         data = json.loads(raw_message)
+        print(f"MMSI: {mmsi}")
         print(f"Parsed Data: {data}")
+
+        # Optional: Access lat/lon and plot or process
+        lat = data.get("lat")
+        lon = data.get("lon")
+        if lat is not None and lon is not None:
+            print(f"Vessel {mmsi} at lat: {lat}, lon: {lon}")
+
     except Exception as e:
         print(f"Error processing message: {e}")
 

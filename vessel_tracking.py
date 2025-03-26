@@ -1,11 +1,15 @@
 import paho.mqtt.client as mqtt
-import time
 import json
-import folium
+from flask import Flask, jsonify, render_template
+import threading
 import webbrowser
+import signal
+import sys
 
 # Store vessel locations
 vessel_locations = []
+
+app = Flask(__name__)
 
 def on_connect(client, userdata, flags, rc):
     print(f"Connected with result code {rc}")
@@ -15,7 +19,6 @@ def on_message(client, userdata, msg):
     global vessel_locations
     try:
         data = json.loads(msg.payload.decode("utf-8"))
-        #print(f"Received message: {data}")
         lat = data.get("lat")
         lon = data.get("lon")
         heading = data.get("heading")
@@ -33,31 +36,33 @@ def fetch_vessel_data():
 
     client.tls_set()  # Enable TLS
     client.connect("meri.digitraffic.fi", 443, 60)
-    client.loop_start()
+    client.loop_forever()  # Run indefinitely
 
-    time.sleep(30)  # Increase runtime to 30 seconds
+@app.route("/")
+def index():
+    return render_template("map.html")
 
-    client.loop_stop()
-    client.disconnect()
-    print("Disconnected from MQTT broker")
+@app.route("/vessels")
+def get_vessels():
+    return jsonify(vessel_locations)
 
-def plot_map():
-    if not vessel_locations:
-        print("No vessel data received, skipping map creation.")
-        return
+def run_flask():
+    # Open the map in the default web browser
+    webbrowser.open("http://127.0.0.1:5000/")
+    app.run(debug=True, use_reloader=False)
 
-    # Create a map centered around the first vessel location
-    m = folium.Map(location=vessel_locations[0], zoom_start=6)
-
-    # Add vessel markers
-    for lat, lon in vessel_locations:
-        folium.Marker([lat, lon], popup=f"Vessel @ {lat}, {lon}").add_to(m)
-
-    # Save and open the map
-    map_file = "vessel_map.html"
-    m.save(map_file)
-    webbrowser.open(map_file)
+def signal_handler(sig, frame):
+    print("Shutting down...")
+    sys.exit(0)
 
 if __name__ == "__main__":
+    # Register signal handler
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+
+    # Start Flask in a separate thread
+    flask_thread = threading.Thread(target=run_flask)
+    flask_thread.start()
+
+    # Start fetching vessel data
     fetch_vessel_data()
-    plot_map()
